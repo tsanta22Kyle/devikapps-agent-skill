@@ -1,0 +1,16 @@
+{
+  "name": "design-pack",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "mirror": "node design-pack/scripts/mirror.mjs",
+    "visual-diff": "node design-pack/scripts/visual-diff.mjs",
+    "states": "node design-pack/scripts/states.mjs",
+    "dom-diff": "node design-pack/scripts/dom-diff.mjs",
+    "lint-ui": "node design-pack/scripts/lint-ui.mjs",
+    "report-check": "node design-pack/scripts/report-check.mjs",
+    "compare": "node design-pack/scripts/compare-page.mjs",
+    "approve": "node design-pack/scripts/approve.mjs"
+  },
+  "devDependencies": { "playwright": "^1.48.0", "pixelmatch": "^6.0.0", "pngjs": "^7.0.0" }
+}
