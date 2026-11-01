@@ -1,0 +1,3 @@
+#!/bin/sh
+# Bloque le push tant que clone ET adaptation ne sont pas signés par Kyle.
+node design-pack/scripts/verify.mjs adapt

@@ -10,7 +10,8 @@
     "lint-ui": "node design-pack/scripts/lint-ui.mjs",
     "report-check": "node design-pack/scripts/report-check.mjs",
     "compare": "node design-pack/scripts/compare-page.mjs",
-    "approve": "node design-pack/scripts/approve.mjs"
+    "approve": "node design-pack/scripts/approve.mjs",
+    "verify": "node design-pack/scripts/verify.mjs"
   },
   "devDependencies": { "playwright": "^1.48.0", "pixelmatch": "^6.0.0", "pngjs": "^7.0.0" }
 }

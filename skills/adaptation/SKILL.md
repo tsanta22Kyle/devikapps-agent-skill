@@ -33,4 +33,4 @@ Ajouter un élément, un texte, une description ou une décoration absents de la
 `npm run compare -- adapt`, puis : "Adaptation prête, valide avec `npm run approve adapt`". Ne jamais merger avant `adapt-validated`.
 
 ## Économie de tokens
-Scripts sur disque, verdicts seulement. Un sous-agent par section (nav, hero, footer...). Jamais de `browser_snapshot` sur une page entière.
+Scripts sur disque, verdicts seulement. Un sous-agent par section (nav, hero, footer...) si ton agent en propose. Jamais de `browser_snapshot` sur une page entière.

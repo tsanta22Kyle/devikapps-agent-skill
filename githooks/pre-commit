@@ -1,0 +1,4 @@
+#!/bin/sh
+# Bloque un commit touchant src/ tant qu'un clone n'est pas signé par Kyle.
+git diff --cached --name-only | grep -qE '^(src|app|components)/' || exit 0
+node design-pack/scripts/verify.mjs clone
