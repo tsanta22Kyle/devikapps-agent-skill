@@ -1,7 +1,10 @@
-import fs from 'node:fs'; import path from 'node:path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { chromium } from 'playwright';
 export { chromium };
-export const ROOT = process.cwd(); export const DP = '.design-pack';
+
+export const ROOT = process.cwd();
+export const DP = '.design-pack';
 export const WIDTHS = Array.from({ length: 11 }, (_, i) => 320 + i * 160); // 320 → 1920
 export const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 export const writeJson = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 1)); };
@@ -14,23 +17,92 @@ export const setGate = (name, key, pass, info = {}) => {
 };
 export const toUrl = (t) => (/^(https?|file):/.test(t) ? t : 'file://' + path.resolve(t));
 
-export async function autoScroll(page) {
-  await page.evaluate(async () => {
-    await new Promise((r) => { let y = 0; const t = setInterval(() => {
-      window.scrollBy(0, 400); y += 400;
-      if (y >= document.body.scrollHeight || y > 30000) { clearInterval(t); window.scrollTo(0, 0); setTimeout(r, 600); }
-    }, 120); });
-  });
+const SCROLL_LIMIT_PX = 30000;
+const SCROLL_STEP_PX = 400;
+const SCROLL_DELAY_MS = 120;
+const SCROLL_SETTLE_MS = 600;
+const NAVIGATION_RECOVERY_MS = 5000;
+
+function isDestroyedExecutionContext(error) {
+  return /Execution context was destroyed|Cannot find context with specified id|Frame was detached/i.test(error?.message ?? '');
 }
-// Page déterministe : Math.random figé, scroll complet (déclenche les animations au scroll), networkidle.
-export async function openPage(browser, url, w, h = 900) {
+
+async function evaluateDuringScroll(page, callback, value, recovery) {
+  try {
+    return await page.evaluate(callback, value);
+  } catch (error) {
+    if (!isDestroyedExecutionContext(error)) throw error;
+    if (recovery.used) {
+      throw new Error(`Repeated navigation while scrolling ${page.url()}`, { cause: error });
+    }
+
+    recovery.used = true;
+    try {
+      await page.waitForLoadState('domcontentloaded', { timeout: NAVIGATION_RECOVERY_MS });
+      return await page.evaluate(callback, value);
+    } catch (retryError) {
+      throw new Error(`Could not resume scrolling after navigation at ${page.url()}`, { cause: retryError });
+    }
+  }
+}
+
+export async function autoScroll(page) {
+  const recovery = { used: false };
+  const evaluate = (callback, value) => evaluateDuringScroll(page, callback, value, recovery);
+  const metrics = () => evaluate(() => ({
+    height: Math.max(document.body?.scrollHeight ?? 0, document.documentElement?.scrollHeight ?? 0),
+    viewport: window.innerHeight,
+  }));
+
+  let position = 0;
+  let pageMetrics = await metrics();
+  while (position < SCROLL_LIMIT_PX && position < pageMetrics.height) {
+    await evaluate(y => window.scrollTo(0, y), position);
+    await page.waitForTimeout(SCROLL_DELAY_MS);
+    pageMetrics = await metrics();
+
+    const maxScroll = Math.max(0, pageMetrics.height - pageMetrics.viewport);
+    if (position >= maxScroll) break;
+    position = Math.min(position + SCROLL_STEP_PX, maxScroll, SCROLL_LIMIT_PX);
+  }
+
+  await evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(SCROLL_SETTLE_MS);
+}
+
+// Deterministic page load. Scroll commands run from Node so archived MHTML pages
+// do not depend on timers in their sandboxed document.
+export async function openPage(browser, url, w, h = 900, options = {}) {
+  const { init, noScroll = false, waitUntil = 'networkidle' } = options ?? {};
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   await ctx.addInitScript(() => { let s = 42; Math.random = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; });
+  if (init) await ctx.addInitScript(init);
+
   const page = await ctx.newPage();
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 }).catch(() => {});
-  await autoScroll(page);
-  return page;
+  try {
+    await page.goto(url, { waitUntil, timeout: 60000 });
+  } catch (error) {
+    if (error?.name !== 'TimeoutError') {
+      await ctx.close().catch(() => {});
+      throw error;
+    }
+    try {
+      await page.waitForLoadState('domcontentloaded', { timeout: NAVIGATION_RECOVERY_MS });
+    } catch (waitError) {
+      await ctx.close().catch(() => {});
+      throw new Error(`Navigation to ${url} timed out before DOMContentLoaded`, { cause: waitError });
+    }
+  }
+
+  try {
+    if (!noScroll) await autoScroll(page);
+    return page;
+  } catch (error) {
+    await ctx.close().catch(() => {});
+    throw error;
+  }
 }
+
 export async function extractStyles(page) {
   return page.evaluate(() => {
     const pick = (cs) => { const o = {}; for (const p of cs) o[p] = cs.getPropertyValue(p); return o; };

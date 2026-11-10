@@ -11,7 +11,8 @@
     "report-check": "node design-pack/scripts/report-check.mjs",
     "compare": "node design-pack/scripts/compare-page.mjs",
     "approve": "node design-pack/scripts/approve.mjs",
-    "verify": "node design-pack/scripts/verify.mjs"
+    "verify": "node design-pack/scripts/verify.mjs",
+    "test:lib": "node --test scripts/lib.test.mjs"
   },
   "devDependencies": { "playwright": "^1.48.0", "pixelmatch": "^6.0.0", "pngjs": "^7.0.0" }
 }
